@@ -4,8 +4,11 @@
 #include "IObject.h"
 #include "Sphere.h"
 #include "Plane.h"
-#include <Vector>
+#include <vector>
+#include <valarray>
 #include <atomic>
+
+typedef std::valarray<uint8_t> imBufType;
 
 struct Camera
 {
@@ -18,6 +21,10 @@ struct Camera
     double FL;
 };
 
+double RayMarch(Vec origin, Vec ray, std::vector<IObject*>& scene);
+void populateScene(std::vector<IObject*>& scene);
+imBufType castRays(Camera& cam, std::vector<IObject*>& scene);
+
 void populateScene(std::vector<IObject*>& scene)
 {
     Sphere sphere_0(Vec(0,1,5), 5, Vec(0, 255, 0));
@@ -26,11 +33,14 @@ void populateScene(std::vector<IObject*>& scene)
     scene.push_back(&plane_0);
 }
 
-void castRays(Camera& cam, std::vector<IObject*>& scene)
+imBufType castRays(Camera& cam, std::vector<IObject*>& scene)
 {
     unsigned int total_pixels = cam.X_RES*cam.Y_RES;
     volatile std::atomic<size_t> pixel_count(0); //To be used for parallelprocessing in the future.
+    imBufType imageBuffer( total_pixels*3);
+    uint64_t bufferByteCount = 0;
     while(true) {
+
         int x_index = pixel_count++;
 
         if (x_index >= total_pixels) {
@@ -40,15 +50,19 @@ void castRays(Camera& cam, std::vector<IObject*>& scene)
         x_index = x_index % cam.X_RES;
 
         Vec ray_dir =
-                -cam.FL * cam.n + cam.WIDTH * (((double) 2 * x_index/ (cam.X_RES - 1)) - 1) * cam.u +
+                -cam.FL * cam.n + cam.WIDTH * (((double) 2 * x_index / (cam.X_RES - 1)) - 1) * cam.u +
                 cam.HEIGHT * (((double) 2 * y_index / (cam.Y_RES - 1)) - 1) * cam.v;
         Vec ray_norm = normalise(ray_dir);
 
-        double dist = Raymarch(cam.position, ray_norm, scene);
+        uint8_t dist = static_cast<uint8_t>(255*float(y_index)/cam.Y_RES);//RayMarch(cam.position, ray_norm, scene);
 
-
-        img.pixelMatrix[img.index(x_index, y_index)] = (img.pixelMatrix[img.index(x_index, y_index)]) + c;
+        imageBuffer[bufferByteCount] = dist;
+        imageBuffer[bufferByteCount + 1] = dist;
+        imageBuffer[bufferByteCount + 2] = dist;
+        bufferByteCount += 3;
     }
+
+    return imageBuffer;
 }
 
 double RayMarch(Vec origin, Vec ray, std::vector<IObject*>& scene)
@@ -69,10 +83,11 @@ int main() {
     std::vector<IObject*> scene;
     populateScene(scene);
 
-    castRays(cam, scene);
-    //display image
-    //save image
+    imBufType imageBuffer = castRays(cam, scene);
+    cv::Mat cv_img(cam.Y_RES, cam.X_RES, CV_8UC3, &(imageBuffer[0]), 3*cam.X_RES);
 
+    cv::imshow("Raymarcher!111!!11!", cv_img);
+    cv::waitKey(0);
     std::cout <<"Raymarcher Finished" << std::endl;
     return 0;
 }
