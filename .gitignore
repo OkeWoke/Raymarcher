@@ -32,4 +32,5 @@
 *.app
 
 cmake-build-debug/
+renders/
 .DS_Store
