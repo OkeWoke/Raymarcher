@@ -14,7 +14,7 @@ Sphere::Sphere(Vec p, double radius, Vec c) : IObject(p, c), radius(radius)
 
 double Sphere::SDF(Vec p)
 {
-    return (this->position - p).abs() -this->radius;
+    return ((p-this->position).abs()/this->radius - 1)*this->radius;
 }
 
 Vec Sphere::getNormal(Vec p)

@@ -23,9 +23,21 @@ struct Camera
     double FL;
 };
 
-double RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_ptr<IObject>>& scene);
+struct Hit
+{
+    int steps;
+    int closest_dist;
+    int total_length;
+    Vec ray;
+    Vec pos;
+    Vec n;
+    Vec hit_col = Vec(-1, -1, -1);
+};
+
+Hit RayMarch(const Vec& origin, const Vec& ray);
 void populateScene(std::vector<std::shared_ptr<IObject>>& scene);
 imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& scene);
+Vec Shade(Hit hit);
 
 void populateScene(std::vector<std::shared_ptr<IObject>>& scene)
 {
@@ -56,84 +68,104 @@ imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObjec
                 cam.HEIGHT * (((double) 2 * y_index / (cam.Y_RES - 1)) - 1) * cam.v;
         Vec ray_norm = normalise(ray_dir);
 
-        double dist = RayMarch(cam.position, ray_norm, scene);
+        Hit hit = RayMarch(cam.position, ray_norm);
 
-        imageBuffer[bufferByteCount] = dist;
-        imageBuffer[bufferByteCount + 1] = dist;
-        imageBuffer[bufferByteCount + 2] = dist;
+        Vec color = Shade(hit);
+
+        imageBuffer[bufferByteCount] = color.z;
+        imageBuffer[bufferByteCount + 1] = color.y;
+        imageBuffer[bufferByteCount + 2] = color.x;
         bufferByteCount += 3;
     }
 
     return imageBuffer;
 }
 
-double RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_ptr<IObject>>& scene)
+Hit RayMarch(const Vec& origin, const Vec& ray)
 {
-    unsigned int MAX_STEPS = 40;
-    unsigned int MAX_LENGTH = 50;
+    unsigned int MAX_STEPS = 200;
+    unsigned int MAX_LENGTH = 500;
 
-    double epsilon = 0.0001;
+    double epsilon = 0.000001;
     Vec pos = origin;
     double total_length=0;
-    std::shared_ptr<IObject> hit_obj = nullptr;
     std::vector<double> distances;
 
-    Sphere sphere_0(Vec(1,1,2), 0.4, Vec(0, 255, 0));
-    Sphere sphere_1(Vec(0,5,25), 15, Vec(0, 255, 0));
-    Sphere sphere_2(Vec(0,8,20), 15, Vec(0, 255, 0));
-    Sphere sphere_3(Vec(0,20,25), 8, Vec(0, 255, 0));
-    Sphere sphere_4(Vec(0,0,5), 10, Vec(0, 255, 0));
-    Plane plane_0(Vec(0,-6, 0), Vec(0, 1, 0), Vec(0, 255, 0));
-
+    Sphere sphere_0(Vec(0,0,5), 1, Vec(255, 255, 0));
+    Plane plane_0(Vec(0,-1.2, 0), Vec(0, 1, 0), Vec(80, 76, 76));
+    double min_dist_overall = 9e16;
+    Hit hit;
     for(unsigned int i=0; i < MAX_STEPS; i++)
     {
-        double min_dist = 9e16;
-        double rep = 2;
-        Vec modulo_pos(fmod(pos.x, rep), fmod(pos.y, rep), fmod(pos.z, rep));
-        double sphere_0_dist = sphere_0.SDF(modulo_pos);
+        double sphere_0_dist = sphere_0.SDF(pos);
         double plane_0_dist = plane_0.SDF(pos);
-        double sphere_1_dist = sphere_1.SDF(pos);
-        double sphere_2_dist = sphere_2.SDF(pos);
-        double sphere_3_dist = sphere_3.SDF(pos);
-        double sphere_4_dist = sphere_4.SDF(pos);
 
-        min_dist = sphere_0_dist;
-        /**min_dist = std::max(plane_0_dist, -1*sphere_0_dist);
-        min_dist = std::max(min_dist, -1*sphere_4_dist);
-        double other_min = std::max(sphere_1_dist, -1*sphere_2_dist);
-        min_dist = std::min(min_dist, other_min);
-        min_dist = std::min(sphere_3_dist, min_dist);**/
-
-
+        double min_dist = std::min(sphere_0_dist, plane_0_dist);
+        if (min_dist < min_dist_overall)
+            min_dist_overall=min_dist;
         if (min_dist < epsilon)
         {
+            if (sphere_0_dist < plane_0_dist)
+            {
+                hit.hit_col =  sphere_0.color;
+                hit.n = sphere_0.getNormal(pos);
+            }else
+            {
+                hit.hit_col = plane_0.color;
+                hit.n = plane_0.getNormal(pos);
+            }
+
             break;
         }
-
         total_length+=min_dist;
         if (total_length > MAX_LENGTH)
         {
-            //total_length =MAX_LENGTH;// MAX_LENGTH; //for distance field images
-            //break;
+            total_length =MAX_LENGTH;// MAX_LENGTH; //for distance field images
+            break;
         }
-        if (hit_obj != nullptr) break;
         pos = pos + ray*min_dist;
     }
-    return 255-total_length;
+
+    hit.ray = ray;
+    hit.pos = pos;
+    hit.total_length = total_length;
+    hit.closest_dist = min_dist_overall;
+
+    return hit;
+}
+
+double clamp(double val){
+    return (val < 0) ? 0 : val;
+}
+
+Vec Shade(Hit hit)
+{
+    //if (hit.hit_col.x != -1) return hit.hit_col;
+    //return Vec(hit.total_length, hit.total_length, hit.total_length);
+    if(hit.hit_col.x == -1)
+    {
+        double t = 0.5*(hit.ray.y+1);
+
+        return (1-t)*Vec(255, 255,255) + t*Vec(127, 0.7*255, 255);
+    }
+    Vec Light(10, 10, 0);
+    Vec LightRay = normalise(Light - hit.pos);
+    Hit shadow_hit = RayMarch(hit.pos+0.001*LightRay, LightRay);
+    return clamp(hit.n.dot(LightRay))*hit.hit_col;
 }
 
 int main() {
     std::cout << "Raymarcher!" << std::endl;
     Camera cam;
-    cam.position = Vec(0,0,0);
-    cam.n = normalise(Vec(-0.5,-0.5,-1));
+    cam.position = Vec(0,0.3,-3);
+    cam.n = normalise(Vec(0,0,-1));
     cam.u = Vec(1, 0 ,0);
     cam.v = Vec(0, -1, 0);
     cam.X_RES = 800;
     cam.Y_RES = 800;
     cam.WIDTH = 5;
     cam.HEIGHT = 5;
-    cam.FL = 6;
+    cam.FL = 10;
 
     std::vector<std::shared_ptr<IObject>> scene;
     populateScene(scene);
