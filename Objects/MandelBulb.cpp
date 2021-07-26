@@ -20,7 +20,7 @@ double MandelBulb::SDF(Vec pos)
     Vec z = pos;
     float dr = 1.0;
     float r = 0.0;
-    int Iterations = 100;
+    int Iterations = 10;
     int Power = 8;
     double Bailout = 2;
     for (int i = 0; i < Iterations ; i++) {

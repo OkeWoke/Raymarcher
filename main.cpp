@@ -1,10 +1,9 @@
-#include <iostream>
 #include <opencv2/opencv.hpp>
-#include "Vec.h"
-#include "IObject.h"
-#include "Sphere.h"
-#include "Plane.h"
-#include "MandelBulb.h"
+#include "opencv2/highgui.hpp"
+#include "opencv2/imgcodecs.hpp"
+#include "opencv2/imgproc.hpp"
+
+#include <iostream>
 #include <vector>
 #include <valarray>
 #include <atomic>
@@ -12,7 +11,16 @@
 #include <future>
 #include <chrono>
 
-typedef std::valarray<double> imBufDouble;
+#include "Vec.h"
+#include "IObject.h"
+#include "Sphere.h"
+#include "Plane.h"
+#include "MandelBulb.h"
+
+#include <climits>
+
+
+typedef std::valarray<float> imBufDouble;
 typedef std::valarray<uint8_t> imBufuInt;
 
 struct Camera
@@ -31,7 +39,6 @@ struct Hit
     int steps;
     int closest_dist;
     int total_length;
-    unsigned int steps;
     Vec ray;
     Vec pos;
     std::shared_ptr<IObject> hit_obj = nullptr;
@@ -41,16 +48,17 @@ Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_pt
 void populateScene(std::vector<std::shared_ptr<IObject>>& scene);
 imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& scene);
 Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene);
+void displayHistogram(cv::Mat src);
 
 void populateScene(std::vector<std::shared_ptr<IObject>>& scene)
 {
     std::shared_ptr<IObject> sphere_0 = std::make_shared<Sphere>(Vec(0,0,40), 15, Vec(200, 0, 30));
     std::shared_ptr<IObject> plane_0 = std::make_shared<Plane>(Vec(0,-1, 0), Vec(0, 1, 0), Vec(0, 100, 30));
-    //scene.push_back(std::move(sphere_0));
-    //scene.push_back(std::move(plane_0));
+    scene.push_back(std::move(sphere_0));
+    scene.push_back(std::move(plane_0));
 
     std::shared_ptr<IObject> mandelBulb_0 = std::make_shared<MandelBulb>();
-    scene.push_back(std::move(mandelBulb_0));
+    //scene.push_back(std::move(mandelBulb_0));
 }
 
 imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& scene)
@@ -95,8 +103,8 @@ imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObjec
 
 Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_ptr<IObject>>& scene)
 {
-    unsigned int MAX_STEPS = 5000;
-    unsigned int MAX_LENGTH = 15;
+    unsigned int MAX_STEPS = 100;
+    unsigned int MAX_LENGTH = 30;
     double EPSILON = 0.01;
 
     Vec pos = origin;
@@ -142,11 +150,12 @@ double clamp(double val, double min){
 
 Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene)
 {
-    return Vec(1,1,1) * hit.steps;
-    if(hit.hit_obj == nullptr)
+   // if (hit.hit_obj != nullptr) return Vec(1,1,1) * (pow(2,16)- 1)*0;
+    //return Vec(1,1,1) * hit.steps;
+    //if(hit.hit_obj == nullptr)
     {
         double t = 0.5*(hit.ray.y+1);
-        return (1-t)*Vec(255, 255,255) + t*Vec(127, 0.7*255, 255);
+        return (1-t)*Vec(255, 255,255) + t*Vec(127, 127, 127);
     }
 
     Vec Light(10, 10, 0);
@@ -158,11 +167,52 @@ Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene)
 
     return 100*clamp(normal.dot(LightRay), 0)*hit.hit_obj->color/clamp(lightRayLength, 1);
 }
+void displayHistogram(imBufDouble& imageBuffer, unsigned int no_pixels)
+{
+//vovkos.github.io/doxyrest-showcase/opencv/sphinx_rtd_theme/page_tutorial_histogram_calculation.html
+    double max_val = imageBuffer.max();
+    double min_val = imageBuffer.min();
+    double mean = imageBuffer.sum()/(3*no_pixels);
+    imBufDouble imageBufferSTD = imageBuffer - mean; //copy
+    imageBufferSTD*=imageBufferSTD; //square
+    double std = sqrt(imageBufferSTD.sum()/(3*no_pixels));
+
+    std::cout << "Mean Pixel Value: " << mean << std::endl;
+    std::cout << "STD Pixel Value: " << std << std::endl;
+    std::cout << "Max Pixel Value: " << max_val << std::endl;
+    std::cout << "Min Pixel Value: " << min_val << std::endl;
+
+    unsigned int no_bins = 800;
+    std::valarray<unsigned int> hist_counts(no_bins);
+    double bin_increment = (max_val-min_val)/no_bins;
+
+    for (int k=0; k<no_pixels; k+=1)
+    {
+        int i = no_bins*((imageBuffer[k*3] - min_val)/(max_val-min_val));
+        hist_counts[i]++;
+    }
+
+    unsigned int hist_height = 800;
+
+    cv::Mat histImage( hist_height, no_bins, CV_8UC3, cv::Scalar( 0,0,0) );
+
+    for( int i = 0; i < no_bins; i++ )
+    {
+        cv::line( histImage, cv::Point(i ,hist_height - hist_height*hist_counts[i]/(hist_counts.max())),
+                  cv::Point(i ,hist_height),
+              cv::Scalar( 255, 255, 255), 2, 8, 0  );
+    }
+    std::cout << "Histogram Computed" << std::endl;
+    cv::imshow("Histogram", histImage );
+
+    cv::waitKey(0);
+}
 
 int main() {
+    if (sizeof(float) * CHAR_BIT != 32) std::cout << "Not 32-bit float "<< std::endl;
     std::cout << "Raymarcher!" << std::endl;
     Camera cam;
-    cam.position = Vec(0,0,-3);
+    cam.position = Vec(0,0.1,-3);
     cam.n = normalise(Vec(0,0,-1));
     cam.u = Vec(1, 0 ,0);
     cam.v = Vec(0, -1, 0);
@@ -180,16 +230,18 @@ int main() {
     auto cast_end = std::chrono::steady_clock::now();
     std::cout << "Render Time: " << (cast_end - cast_start)/std::chrono::milliseconds(1) << " (ms)" << std::endl;
 
-    double multiplier = 255.0 / (imageBuffer.max());
+    displayHistogram(imageBuffer, cam.X_RES*cam.Y_RES);
+    double multiplier = 255/ (imageBuffer.max());
     imageBuffer = multiplier * (imageBuffer);
 
     imBufuInt cvBuffer(cam.Y_RES * cam.X_RES * 3);
-    for (uint32_t i = 0; i < imageBuffer.size(); ++i) {
+    for (uint32_t i = 0; i < imageBuffer.size(); ++i)
+    {
         cvBuffer[i] = static_cast<uint8_t>(imageBuffer[i]);
     }
 
     cv::Mat cv_img(cam.Y_RES, cam.X_RES, CV_8UC3, &(cvBuffer[0]), 3 * cam.X_RES);
-
+    //displayHistogram(cv_img);
     cv::imshow("Raymarcher!111!!11!", cv_img);
     cv::waitKey(0);
     cv::destroyAllWindows();
@@ -203,6 +255,3 @@ int main() {
     std::cout <<"Raymarcher Finished" << std::endl;
     return 0;
 }
-
-/** Original Scene File method... not useful for experimenting with CSG.
-  **/
