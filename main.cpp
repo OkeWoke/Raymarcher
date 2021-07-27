@@ -44,11 +44,16 @@ struct Hit
     std::shared_ptr<IObject> hit_obj = nullptr;
 };
 
-Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_ptr<IObject>>& scene);
+Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_ptr<IObject>>& scene, double max_length);
 void populateScene(std::vector<std::shared_ptr<IObject>>& scene);
 imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& scene);
 Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene);
 void displayHistogram(cv::Mat src);
+
+const unsigned int MAX_STEPS = 100;
+const double MAX_LENGTH = 55;
+const double EPSILON = 0.01;
+const unsigned int THREADS_TO_USE = 8;
 
 void populateScene(std::vector<std::shared_ptr<IObject>>& scene)
 {
@@ -68,8 +73,8 @@ imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObjec
     imBufDouble imageBuffer( total_pixels*3);
 
     std::vector<std::future<void>> future_vector;
-    int cores_to_use = 8;
-    for (int i = 0; i<cores_to_use; i++ )
+
+    for (int i = 0; i<THREADS_TO_USE; i++ )
     {
         future_vector.emplace_back(
         async(std::launch::async, [=, &cam, &scene, &imageBuffer, &pixel_count]()
@@ -88,7 +93,7 @@ imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObjec
                         cam.HEIGHT * (((double) 2 * y_index / (cam.Y_RES - 1)) - 1) * cam.v;
                 Vec ray_norm = normalise(ray_dir);
 
-                Hit hit = RayMarch(cam.position, ray_norm, scene);
+                Hit hit = RayMarch(cam.position, ray_norm, scene, MAX_LENGTH);
 
                 Vec color = Shade(hit, scene);
 
@@ -101,24 +106,36 @@ imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObjec
     return imageBuffer;
 }
 
-Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_ptr<IObject>>& scene)
+double sceneSDF(const std::vector<std::shared_ptr<IObject>>& scene, Vec pos)
 {
-    unsigned int MAX_STEPS = 100;
-    unsigned int MAX_LENGTH = 30;
-    double EPSILON = 0.01;
+    double min_dist= 9e19;
 
+    for(std::shared_ptr<IObject> obj: scene)
+    {
+        double dist = obj->SDF(pos);
+        if (dist < min_dist) min_dist = dist;
+    }
+
+    return min_dist;
+}
+Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_ptr<IObject>>& scene, double max_length)
+{
     Vec pos = origin;
     double total_length=0;
-    double min_dist = 9e16;
     Hit hit;
     unsigned int i;
 
     for(i=0; i < MAX_STEPS; i++)
     {
+        if (total_length > max_length)
+        {
+            total_length = max_length;// max_length; //for distance field images
+            break;
+        }
+        double min_dist = 9e16;
         for(std::shared_ptr<IObject> obj: scene)
         {
             double dist = obj->SDF(pos);
-
             if (dist < min_dist) min_dist =  dist;
             if (dist < EPSILON)
             {
@@ -128,18 +145,14 @@ Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_pt
         }
 
         total_length+=min_dist;
-        if (total_length > MAX_LENGTH)
-        {
-            total_length =MAX_LENGTH;// MAX_LENGTH; //for distance field images
-            break;
-        }
         pos = pos + ray*min_dist;
     }
 
     hit.ray = ray;
     hit.pos = pos;
     hit.total_length = total_length;
-    hit.closest_dist = min_dist;
+    //if (total_length != max_length) std::cout << "Not max" << std::endl;
+    //if(total_length ==max_length) i = MAX_STEPS;
     hit.steps = i;
     return hit;
 }
@@ -148,28 +161,43 @@ double clamp(double val, double min){
     return (val < min) ? min : val;
 }
 
+double softShadow(Vec lightRay, Vec pos, double minT, double maxT, double k, const std::vector<std::shared_ptr<IObject>>& scene)
+{
+    double res = 1;
+    for(double t=minT; t<maxT;)
+    {
+        double dist = sceneSDF(scene, pos);
+        if (dist< 0.001) return 0;
+        res = std::min(res, k*dist/t);
+        t+=dist;
+    }
+    return res;
+}
+
 Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene)
 {
-   // if (hit.hit_obj != nullptr) return Vec(1,1,1) * (pow(2,16)- 1)*0;
-    //return Vec(1,1,1) * hit.steps;
-    //if(hit.hit_obj == nullptr)
+    //if (hit.hit_obj == nullptr) return Vec(0,0,0);// * (pow(2,16)- 1)*0;
+    if(hit.total_length == MAX_LENGTH || hit.hit_obj == nullptr)
     {
         double t = 0.5*(hit.ray.y+1);
-        return (1-t)*Vec(255, 255,255) + t*Vec(127, 127, 127);
+        return (1-t)*Vec(255, 255,255) + t*Vec(127, 127, 255);
     }
 
-    Vec Light(10, 10, 0);
+    //return Vec(255.0,255.0,255.0) *(1- (double(hit.total_length)/MAX_LENGTH));
+
+    Vec Light(3, 3, -8);
     Vec LightRay = (Light - hit.pos);
     double lightRayLength = LightRay.abs();
     LightRay = normalise(LightRay);
-    Hit shadow_hit = RayMarch(hit.pos+0.001*LightRay, LightRay, scene);
-    Vec normal = hit.hit_obj->getNormal(hit.pos);
+    //Hit shadow_hit = RayMarch(hit.pos+0.001*LightRay, LightRay, scene, lightRayLength);
+    double shadow = softShadow(LightRay, hit.pos+EPSILON*LightRay, 0.01, lightRayLength, 2, scene);
+    if (shadow == 0 ) return Vec(0,0,0);
+    Vec normal = hit.hit_obj->getNormal(hit.pos-normalise(hit.ray)*2*EPSILON);
 
-    return 100*clamp(normal.dot(LightRay), 0)*hit.hit_obj->color/clamp(lightRayLength, 1);
+    return 2*clamp(normal.dot(LightRay), 0)*hit.hit_obj->color;//clamp(lightRayLength, 1);
 }
 void displayHistogram(imBufDouble& imageBuffer, unsigned int no_pixels)
 {
-//vovkos.github.io/doxyrest-showcase/opencv/sphinx_rtd_theme/page_tutorial_histogram_calculation.html
     double max_val = imageBuffer.max();
     double min_val = imageBuffer.min();
     double mean = imageBuffer.sum()/(3*no_pixels);
@@ -194,32 +222,43 @@ void displayHistogram(imBufDouble& imageBuffer, unsigned int no_pixels)
 
     unsigned int hist_height = 800;
 
-    cv::Mat histImage( hist_height, no_bins, CV_8UC3, cv::Scalar( 0,0,0) );
+    cv::Mat histImage( hist_height, no_bins+2, CV_8UC3, cv::Scalar( 0,0,0) );
 
-    for( int i = 0; i < no_bins; i++ )
+    std::valarray<unsigned int> hist_counts_sorted = hist_counts;
+    std::sort(std::begin(hist_counts_sorted), std::end(hist_counts_sorted));
+    unsigned int render_offset = 0;
+    unsigned int max_val_to_render = hist_counts_sorted[no_bins-render_offset-1];
+
+    for( int i = 0; i < no_bins-render_offset; i++ )
     {
-        cv::line( histImage, cv::Point(i ,hist_height - hist_height*hist_counts[i]/(hist_counts.max())),
-                  cv::Point(i ,hist_height),
+        cv::line( histImage, cv::Point(i+1 ,hist_height - hist_height*hist_counts[i]/max_val_to_render),
+                  cv::Point(i+1 ,hist_height),
               cv::Scalar( 255, 255, 255), 2, 8, 0  );
     }
+    std::cout << "Histogram Range Max: " << max_val_to_render << ", Min: " << hist_counts_sorted[0] << std::endl;
     std::cout << "Histogram Computed" << std::endl;
     cv::imshow("Histogram", histImage );
 
     cv::waitKey(0);
+    cv::destroyAllWindows();
+
+    double clip_per = 0.99;
+    unsigned int clip_indice = 798;
+    //imageBuffer[imageBuffer > hist_counts[clip_indice]] = 0;
 }
 
 int main() {
     if (sizeof(float) * CHAR_BIT != 32) std::cout << "Not 32-bit float "<< std::endl;
     std::cout << "Raymarcher!" << std::endl;
     Camera cam;
-    cam.position = Vec(0,0.1,-3);
+    cam.position = Vec(0,0,-2.8);
     cam.n = normalise(Vec(0,0,-1));
     cam.u = Vec(1, 0 ,0);
     cam.v = Vec(0, -1, 0);
     cam.X_RES = 800;
     cam.Y_RES = 800;
     cam.WIDTH = 5;
-    cam.HEIGHT = 5;
+    cam.HEIGHT = 5;//2.812;
     cam.FL = 10;
 
     std::vector<std::shared_ptr<IObject>> scene;
@@ -229,10 +268,11 @@ int main() {
     imBufDouble imageBuffer = castRays(cam, scene);
     auto cast_end = std::chrono::steady_clock::now();
     std::cout << "Render Time: " << (cast_end - cast_start)/std::chrono::milliseconds(1) << " (ms)" << std::endl;
+    //imageBuffer[imageBuffer >10] = 0;
+    //displayHistogram(imageBuffer, cam.X_RES*cam.Y_RES);
 
-    displayHistogram(imageBuffer, cam.X_RES*cam.Y_RES);
-    double multiplier = 255/ (imageBuffer.max());
-    imageBuffer = multiplier * (imageBuffer);
+    double multiplier = 1/ (imageBuffer.max());
+    imageBuffer = 255* pow(imageBuffer*multiplier, 0.454);
 
     imBufuInt cvBuffer(cam.Y_RES * cam.X_RES * 3);
     for (uint32_t i = 0; i < imageBuffer.size(); ++i)
@@ -243,8 +283,8 @@ int main() {
     cv::Mat cv_img(cam.Y_RES, cam.X_RES, CV_8UC3, &(cvBuffer[0]), 3 * cam.X_RES);
     //displayHistogram(cv_img);
     cv::imshow("Raymarcher!111!!11!", cv_img);
-    cv::waitKey(0);
-    cv::destroyAllWindows();
+    //cv::waitKey(0);
+    //cv::destroyAllWindows();
 
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);

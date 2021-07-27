@@ -12,34 +12,77 @@ MandelBulb::MandelBulb(): IObject(Vec(), Vec(255, 0, 0))
 
 Vec MandelBulb::getNormal(Vec pos)
 {
-    return Vec();
+    double epsilon = 0.01;
+    Vec normal(0,0,0);
+
+    normal.x = this->SDF(Vec(pos.x+epsilon, pos.y, pos.z)) - this->SDF(Vec(pos.x-epsilon, pos.y, pos.z));
+    normal.y = this->SDF(Vec(pos.x, pos.y+epsilon, pos.z)) - this->SDF(Vec(pos.x, pos.y-epsilon, pos.z));
+    normal.z = this->SDF(Vec(pos.x, pos.y, pos.z+epsilon)) - this->SDF(Vec(pos.x, pos.y, pos.z-epsilon));
+
+    return normal;
 }
 
 double MandelBulb::SDF(Vec pos)
 {
     Vec z = pos;
-    float dr = 1.0;
-    float r = 0.0;
-    int Iterations = 10;
-    int Power = 8;
-    double Bailout = 2;
-    for (int i = 0; i < Iterations ; i++) {
+    double dr = 1.0;
+    double r = 0.0;
+    int iterations = 15;
+    int power = 8;
+
+    for (int i = 0; i < iterations; i++)
+    {
         r = z.abs();
-        if (r>Bailout) break;
+
+        if (r>2) break;
 
         // convert to polar coordinates
-        float theta = acos(z.z/r);
-        float phi = atan(z.y/z.x);
-        dr =  pow( r, Power-1.0)*Power*dr + 1.0;
+        double theta = acos(z.z/r);
+        double phi = atan2(z.y,z.x);
+        dr =  pow( r, power-1.0)*power*dr + 1.0;
 
         // scale and rotate the point
-        float zr = pow( r,Power);
-        theta = theta*Power;
-        phi = phi*Power;
+        double zr = pow( r,power);
+        theta = theta*power;
+        phi = phi*power;
 
         // convert back to cartesian coordinates
         z = zr*Vec(sin(theta)*cos(phi), sin(phi)*sin(theta), cos(theta));
         z+=pos;
     }
-    return 0.5*log(r)*r/dr;
+    double dst = 0.5*log(r)*r/dr;
+    return dst;// iterations;
+    /** old
+    Vec w = pos;
+    double dr = 0;
+    double wr = 0.0;
+    int Iterations = 10;
+    int Power = 8;
+    double Bailout = 2;
+
+    for (int i = 0; i < Iterations ; i++)
+    {
+        // convert to polar coordinates
+        wr = w.abs();
+        if (wr>Bailout) break;
+        double theta = acos(w.y/wr);
+        double phi = atan(w.x/w.z);
+
+        //update derivative
+        dr =  pow( wr, Power-1.0)*Power*dr + 1.0;
+
+        // scale and rotate the point
+        wr = pow(wr, Power);
+        theta = theta * Power;
+        phi = phi * Power;
+
+        // convert back to cartesian coordinates
+        w.x = wr * sin(theta) * sin(phi);
+        w.y = wr * cos(theta);
+        w.z = wr * sin(theta) * cos(phi);
+
+        w+=pos;
+    }
+    if (dr == 0) dr =1;
+    return log(wr)*wr/(dr);**/
 }
