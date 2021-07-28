@@ -24,11 +24,13 @@ Vec MandelBulb::getNormal(Vec pos)
 
 double MandelBulb::SDF(Vec pos)
 {
+    //Implementation taken from: http://blog.hvidtfeldts.net/index.php/2011/09/distance-estimated-3d-fractals-v-the-mandelbulb-different-de-approximations/
+
     Vec z = pos;
     double dr = 1.0;
     double r = 0.0;
     int iterations = 15;
-    int power = 8;
+    int power = 5;
 
     for (int i = 0; i < iterations; i++)
     {
@@ -50,39 +52,8 @@ double MandelBulb::SDF(Vec pos)
         z = zr*Vec(sin(theta)*cos(phi), sin(phi)*sin(theta), cos(theta));
         z+=pos;
     }
+
     double dst = 0.5*log(r)*r/dr;
-    return dst;// iterations;
-    /** old
-    Vec w = pos;
-    double dr = 0;
-    double wr = 0.0;
-    int Iterations = 10;
-    int Power = 8;
-    double Bailout = 2;
 
-    for (int i = 0; i < Iterations ; i++)
-    {
-        // convert to polar coordinates
-        wr = w.abs();
-        if (wr>Bailout) break;
-        double theta = acos(w.y/wr);
-        double phi = atan(w.x/w.z);
-
-        //update derivative
-        dr =  pow( wr, Power-1.0)*Power*dr + 1.0;
-
-        // scale and rotate the point
-        wr = pow(wr, Power);
-        theta = theta * Power;
-        phi = phi * Power;
-
-        // convert back to cartesian coordinates
-        w.x = wr * sin(theta) * sin(phi);
-        w.y = wr * cos(theta);
-        w.z = wr * sin(theta) * cos(phi);
-
-        w+=pos;
-    }
-    if (dr == 0) dr =1;
-    return log(wr)*wr/(dr);**/
+    return dst;
 }

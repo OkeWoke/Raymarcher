@@ -1,7 +1,4 @@
 #include <opencv2/opencv.hpp>
-#include "opencv2/highgui.hpp"
-#include "opencv2/imgcodecs.hpp"
-#include "opencv2/imgproc.hpp"
 
 #include <iostream>
 #include <vector>
@@ -59,11 +56,11 @@ void populateScene(std::vector<std::shared_ptr<IObject>>& scene)
 {
     std::shared_ptr<IObject> sphere_0 = std::make_shared<Sphere>(Vec(0,0,40), 15, Vec(200, 0, 30));
     std::shared_ptr<IObject> plane_0 = std::make_shared<Plane>(Vec(0,-1, 0), Vec(0, 1, 0), Vec(0, 100, 30));
-    scene.push_back(std::move(sphere_0));
-    scene.push_back(std::move(plane_0));
+    //scene.push_back(std::move(sphere_0));
+    //scene.push_back(std::move(plane_0));
 
     std::shared_ptr<IObject> mandelBulb_0 = std::make_shared<MandelBulb>();
-    //scene.push_back(std::move(mandelBulb_0));
+    scene.push_back(std::move(mandelBulb_0));
 }
 
 imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& scene)
@@ -129,7 +126,7 @@ Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_pt
     {
         if (total_length > max_length)
         {
-            total_length = max_length;// max_length; //for distance field images
+            total_length = max_length;
             break;
         }
         double min_dist = 9e16;
@@ -151,8 +148,6 @@ Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_pt
     hit.ray = ray;
     hit.pos = pos;
     hit.total_length = total_length;
-    //if (total_length != max_length) std::cout << "Not max" << std::endl;
-    //if(total_length ==max_length) i = MAX_STEPS;
     hit.steps = i;
     return hit;
 }
@@ -176,14 +171,11 @@ double softShadow(Vec lightRay, Vec pos, double minT, double maxT, double k, con
 
 Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene)
 {
-    //if (hit.hit_obj == nullptr) return Vec(0,0,0);// * (pow(2,16)- 1)*0;
     if(hit.total_length == MAX_LENGTH || hit.hit_obj == nullptr)
     {
         double t = 0.5*(hit.ray.y+1);
-        return (1-t)*Vec(255, 255,255) + t*Vec(127, 127, 255);
+        return (1-t)*Vec(180, 180,180) + t*Vec(60, 60, 150);
     }
-
-    //return Vec(255.0,255.0,255.0) *(1- (double(hit.total_length)/MAX_LENGTH));
 
     Vec Light(3, 3, -8);
     Vec LightRay = (Light - hit.pos);
@@ -194,8 +186,9 @@ Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene)
     if (shadow == 0 ) return Vec(0,0,0);
     Vec normal = hit.hit_obj->getNormal(hit.pos-normalise(hit.ray)*2*EPSILON);
 
-    return 2*clamp(normal.dot(LightRay), 0)*hit.hit_obj->color;//clamp(lightRayLength, 1);
+    return 3*clamp(normal.dot(LightRay), 0)*hit.hit_obj->color;//clamp(lightRayLength, 1);
 }
+
 void displayHistogram(imBufDouble& imageBuffer, unsigned int no_pixels)
 {
     double max_val = imageBuffer.max();
@@ -212,7 +205,6 @@ void displayHistogram(imBufDouble& imageBuffer, unsigned int no_pixels)
 
     unsigned int no_bins = 800;
     std::valarray<unsigned int> hist_counts(no_bins);
-    double bin_increment = (max_val-min_val)/no_bins;
 
     for (int k=0; k<no_pixels; k+=1)
     {
@@ -235,21 +227,18 @@ void displayHistogram(imBufDouble& imageBuffer, unsigned int no_pixels)
                   cv::Point(i+1 ,hist_height),
               cv::Scalar( 255, 255, 255), 2, 8, 0  );
     }
+
     std::cout << "Histogram Range Max: " << max_val_to_render << ", Min: " << hist_counts_sorted[0] << std::endl;
     std::cout << "Histogram Computed" << std::endl;
     cv::imshow("Histogram", histImage );
 
     cv::waitKey(0);
     cv::destroyAllWindows();
-
-    double clip_per = 0.99;
-    unsigned int clip_indice = 798;
-    //imageBuffer[imageBuffer > hist_counts[clip_indice]] = 0;
 }
 
 int main() {
-    if (sizeof(float) * CHAR_BIT != 32) std::cout << "Not 32-bit float "<< std::endl;
     std::cout << "Raymarcher!" << std::endl;
+
     Camera cam;
     cam.position = Vec(0,0,-2.8);
     cam.n = normalise(Vec(0,0,-1));
@@ -258,7 +247,7 @@ int main() {
     cam.X_RES = 800;
     cam.Y_RES = 800;
     cam.WIDTH = 5;
-    cam.HEIGHT = 5;//2.812;
+    cam.HEIGHT = 5;
     cam.FL = 10;
 
     std::vector<std::shared_ptr<IObject>> scene;
@@ -268,7 +257,7 @@ int main() {
     imBufDouble imageBuffer = castRays(cam, scene);
     auto cast_end = std::chrono::steady_clock::now();
     std::cout << "Render Time: " << (cast_end - cast_start)/std::chrono::milliseconds(1) << " (ms)" << std::endl;
-    //imageBuffer[imageBuffer >10] = 0;
+
     //displayHistogram(imageBuffer, cam.X_RES*cam.Y_RES);
 
     double multiplier = 1/ (imageBuffer.max());
@@ -281,17 +270,17 @@ int main() {
     }
 
     cv::Mat cv_img(cam.Y_RES, cam.X_RES, CV_8UC3, &(cvBuffer[0]), 3 * cam.X_RES);
-    //displayHistogram(cv_img);
     cv::imshow("Raymarcher!111!!11!", cv_img);
-    //cv::waitKey(0);
-    //cv::destroyAllWindows();
+    cv::waitKey(0);
+    cv::destroyAllWindows();
 
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
     std::ostringstream filename;
     filename << "/Users/liammurphy/Documents/Raymarcher/renders/render_"  << std::put_time(&tm, "%d-%m-%Y %H-%M-%S") << ".png";
-
     cv::imwrite(filename.str(), cv_img);
+
     std::cout <<"Raymarcher Finished" << std::endl;
+
     return 0;
 }
