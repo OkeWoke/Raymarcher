@@ -17,7 +17,7 @@
 #include <climits>
 
 
-typedef std::valarray<float> imBufDouble;
+typedef std::valarray<double> imBufDouble;
 typedef std::valarray<uint8_t> imBufuInt;
 
 struct Camera
@@ -43,14 +43,14 @@ struct Hit
 
 Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_ptr<IObject>>& scene, double max_length);
 void populateScene(std::vector<std::shared_ptr<IObject>>& scene);
-imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& scene);
+void castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& scene, imBufDouble& imageBuffer);
 Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene);
 void displayHistogram(cv::Mat src);
 
-const unsigned int MAX_STEPS = 100;
-const double MAX_LENGTH = 55;
+const unsigned int MAX_STEPS = 255;
+const double MAX_LENGTH = 100;
 const double EPSILON = 0.01;
-const unsigned int THREADS_TO_USE = 8;
+const unsigned int THREADS_TO_USE = 24;
 
 void populateScene(std::vector<std::shared_ptr<IObject>>& scene)
 {
@@ -63,11 +63,11 @@ void populateScene(std::vector<std::shared_ptr<IObject>>& scene)
     scene.push_back(std::move(mandelBulb_0));
 }
 
-imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& scene)
+void castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& scene, imBufDouble& imageBuffer)
 {
     unsigned int total_pixels = cam.X_RES*cam.Y_RES;
     volatile std::atomic<size_t> pixel_count(0); //To be used for parallelprocessing in the future.
-    imBufDouble imageBuffer( total_pixels*3);
+    //std::valarray<double> imageBuffer( total_pixels*3);
 
     std::vector<std::future<void>> future_vector;
 
@@ -93,14 +93,13 @@ imBufDouble castRays(const Camera& cam, const std::vector<std::shared_ptr<IObjec
                 Hit hit = RayMarch(cam.position, ray_norm, scene, MAX_LENGTH);
 
                 Vec color = Shade(hit, scene);
-
-                imageBuffer[3 * pix_copy] = color.z;
-                imageBuffer[3 * pix_copy + 1] = color.y;
-                imageBuffer[3 * pix_copy + 2] = color.x;
+                int pixIdx = 3 * pix_copy;
+                imageBuffer[pixIdx] = color.z;
+                imageBuffer[pixIdx + 1] = color.y;
+                imageBuffer[pixIdx + 2] = color.x;
             }
         }));
     }
-    return imageBuffer;
 }
 
 double sceneSDF(const std::vector<std::shared_ptr<IObject>>& scene, Vec pos)
@@ -171,19 +170,21 @@ double softShadow(Vec lightRay, Vec pos, double minT, double maxT, double k, con
 
 Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene)
 {
+    return Vec(1,1,1)*hit.total_length;
     if(hit.total_length == MAX_LENGTH || hit.hit_obj == nullptr)
     {
         double t = 0.5*(hit.ray.y+1);
         return (1-t)*Vec(180, 180,180) + t*Vec(60, 60, 150);
     }
+  
 
     Vec Light(3, 3, -8);
     Vec LightRay = (Light - hit.pos);
     double lightRayLength = LightRay.abs();
     LightRay = normalise(LightRay);
-    //Hit shadow_hit = RayMarch(hit.pos+0.001*LightRay, LightRay, scene, lightRayLength);
-    double shadow = softShadow(LightRay, hit.pos+EPSILON*LightRay, 0.01, lightRayLength, 2, scene);
-    if (shadow == 0 ) return Vec(0,0,0);
+    Hit shadow_hit = RayMarch(hit.pos+0.001*LightRay, LightRay, scene, lightRayLength);
+    //double shadow = softShadow(LightRay, hit.pos+EPSILON*LightRay, 0.01, lightRayLength, 2, scene);
+    if (shadow_hit.hit_obj == nullptr ) return Vec(0,0,0);
     Vec normal = hit.hit_obj->getNormal(hit.pos-normalise(hit.ray)*2*EPSILON);
 
     return 3*clamp(normal.dot(LightRay), 0)*hit.hit_obj->color;//clamp(lightRayLength, 1);
@@ -250,11 +251,14 @@ int main() {
     cam.HEIGHT = 5;
     cam.FL = 10;
 
+    int total_px = cam.Y_RES * cam.X_RES;
     std::vector<std::shared_ptr<IObject>> scene;
     populateScene(scene);
 
+    imBufDouble imageBuffer(total_px * 3);
+
     auto cast_start = std::chrono::steady_clock::now();
-    imBufDouble imageBuffer = castRays(cam, scene);
+    castRays(cam, scene, imageBuffer);
     auto cast_end = std::chrono::steady_clock::now();
     std::cout << "Render Time: " << (cast_end - cast_start)/std::chrono::milliseconds(1) << " (ms)" << std::endl;
 
@@ -277,7 +281,9 @@ int main() {
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
     std::ostringstream filename;
-    filename << "/Users/liammurphy/Documents/Raymarcher/renders/render_"  << std::put_time(&tm, "%d-%m-%Y %H-%M-%S") << ".png";
+    // mac "/Users/liammurphy/Documents/Raymarcher/renders/render_"
+    // win "C:\\Users\\OkeWoke\\Documents\\Raymarcher\\renders\\render_"
+    filename <<  "C:\\Users\\OkeWoke\\Documents\\Raymarcher\\renders\\render_" << std::put_time(&tm, "%d-%m-%Y %H-%M-%S") << ".png";
     cv::imwrite(filename.str(), cv_img);
 
     std::cout <<"Raymarcher Finished" << std::endl;
