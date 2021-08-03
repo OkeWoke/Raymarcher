@@ -1,16 +1,7 @@
-﻿// unit-tests.cpp : Source file for your target.
-//
+﻿#define CATCH_CONFIG_RUNNER
 
-
-#define CATCH_CONFIG_RUNNER
-
-#include <Catch2\catch_all.hpp>
-#include "..\Vec.h"
-
-
-
-
-
+#include <catch2/catch_all.hpp>
+#include "../Vec.h"
 
 int main(int argc, char* argv[])
 {
