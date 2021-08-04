@@ -10,7 +10,10 @@ endif()
 set(CMAKE_CXX_STANDARD 14)
 set(APP_ROOT .)
 set(OBJECTS ./Objects)
+
+find_package(Threads)
 add_compile_options(-pthread)
+
 #Include the directories and now your cpp files will recognize your headers
 include_directories(${APP_ROOT})
 include_directories(${OBJECTS})
