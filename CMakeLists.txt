@@ -24,6 +24,5 @@ add_executable(Raymarcher main.cpp Vec.cpp Vec.h ${OBJECTS}/IObject.h ${OBJECTS}
 if(USE_OPENCV)
     target_link_libraries(Raymarcher ${OpenCV_LIBS})
 endif()
-
-
+target_link_libraries(Raymarcher ${CMAKE_THREAD_LIBS_INIT})
 add_subdirectory("unit-tests")
