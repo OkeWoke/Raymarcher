@@ -1,4 +1,6 @@
+#ifdef USE_OPENCV
 #include <opencv2/opencv.hpp>
+#endif
 
 #include <iostream>
 #include <vector>
@@ -45,8 +47,9 @@ Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_pt
 void populateScene(std::vector<std::shared_ptr<IObject>>& scene);
 void castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& scene, imBufDouble& imageBuffer);
 Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene);
+#ifdef USE_OPENCV
 void displayHistogram(cv::Mat src);
-
+#endif
 const unsigned int MAX_STEPS = 255;
 const double MAX_LENGTH = 100;
 const double EPSILON = 0.01;
@@ -189,7 +192,7 @@ Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene)
 
     return 3*clamp(normal.dot(LightRay), 0)*hit.hit_obj->color;//clamp(lightRayLength, 1);
 }
-
+#ifdef USE_OPENCV
 void displayHistogram(imBufDouble& imageBuffer, unsigned int no_pixels)
 {
     double max_val = imageBuffer.max();
@@ -236,7 +239,7 @@ void displayHistogram(imBufDouble& imageBuffer, unsigned int no_pixels)
     cv::waitKey(0);
     cv::destroyAllWindows();
 }
-
+#endif
 int main() {
     std::cout << "Raymarcher!" << std::endl;
 
@@ -273,6 +276,7 @@ int main() {
         cvBuffer[i] = static_cast<uint8_t>(imageBuffer[i]);
     }
 
+#ifdef USE_OPENCV
     cv::Mat cv_img(cam.Y_RES, cam.X_RES, CV_8UC3, &(cvBuffer[0]), 3 * cam.X_RES);
     cv::imshow("Raymarcher!111!!11!", cv_img);
     cv::waitKey(0);
@@ -285,7 +289,7 @@ int main() {
     // win "C:\\Users\\OkeWoke\\Documents\\Raymarcher\\renders\\render_"
     filename <<  "C:\\Users\\OkeWoke\\Documents\\Raymarcher\\renders\\render_" << std::put_time(&tm, "%d-%m-%Y %H-%M-%S") << ".png";
     cv::imwrite(filename.str(), cv_img);
-
+#endif
     std::cout <<"Raymarcher Finished" << std::endl;
 
     return 0;

@@ -54,6 +54,6 @@ TEST_CASE("Sphere Tests", "[sphere-tests]")
 
     SECTION("Sphere Normal Tests")
     {
-        
+
     }
 }
