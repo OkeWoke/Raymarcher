@@ -4,7 +4,6 @@
 
 #include "Shading.h"
 
-
 double softShadow(Vec lightRay, Vec pos, double minT, double maxT, double k, const Scene& scene)
 {
     double res = 1;

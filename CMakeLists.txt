@@ -17,9 +17,10 @@ add_compile_options(-pthread)
 #Include the directories and now your cpp files will recognize your headers
 include_directories(${APP_ROOT})
 include_directories(${OBJECTS})
+file(GLOB obj_src ${OBJECTS}/*.cpp)
+file(GLOB cur_src ${APP_ROOT}/*.cpp)
 
-
-add_executable(Raymarcher main.cpp Shading.h Shading.cpp CommonDefinitions.h CommonDefinitions.cpp Raymarch.h Raymarch.cpp Vec.cpp Vec.h ${OBJECTS}/IObject.h ${OBJECTS}/Sphere.cpp ${OBJECTS}/Sphere.h ${OBJECTS}/Plane.cpp ${OBJECTS}/Plane.h Objects/MandelBulb.cpp Objects/MandelBulb.h)
+add_executable(Raymarcher ${cur_src} ${obj_src})
 
 if(USE_OPENCV)
     target_link_libraries(Raymarcher ${OpenCV_LIBS})
