@@ -19,7 +19,7 @@ include_directories(${APP_ROOT})
 include_directories(${OBJECTS})
 
 
-add_executable(Raymarcher main.cpp Vec.cpp Vec.h ${OBJECTS}/IObject.h ${OBJECTS}/Sphere.cpp ${OBJECTS}/Sphere.h ${OBJECTS}/Plane.cpp ${OBJECTS}/Plane.h Objects/MandelBulb.cpp Objects/MandelBulb.h)
+add_executable(Raymarcher main.cpp Shading.h Shading.cpp CommonDefinitions.h CommonDefinitions.cpp Raymarch.h Raymarch.cpp Vec.cpp Vec.h ${OBJECTS}/IObject.h ${OBJECTS}/Sphere.cpp ${OBJECTS}/Sphere.h ${OBJECTS}/Plane.cpp ${OBJECTS}/Plane.h Objects/MandelBulb.cpp Objects/MandelBulb.h)
 
 if(USE_OPENCV)
     target_link_libraries(Raymarcher ${OpenCV_LIBS})

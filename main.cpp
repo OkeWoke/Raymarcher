@@ -4,7 +4,6 @@
 
 #include <iostream>
 #include <vector>
-#include <valarray>
 #include <atomic>
 #include <cmath>
 #include <future>
@@ -15,47 +14,15 @@
 #include "Sphere.h"
 #include "Plane.h"
 #include "MandelBulb.h"
+#include "CommonDefinitions.h"
+#include "Raymarch.h"
+#include "Shading.h"
 
-#include <climits>
-
-
-typedef std::valarray<double> imBufDouble;
-typedef std::valarray<uint8_t> imBufuInt;
-
-struct Camera
-{
-    Vec position;
-    Vec u, v, n;
-    unsigned int X_RES;
-    unsigned int Y_RES;
-    double WIDTH;
-    double HEIGHT;
-    double FL;
-};
-
-struct Hit
-{
-    int steps;
-    int closest_dist;
-    int total_length;
-    Vec ray;
-    Vec pos;
-    std::shared_ptr<IObject> hit_obj = nullptr;
-};
-
-Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_ptr<IObject>>& scene, double max_length);
-void populateScene(std::vector<std::shared_ptr<IObject>>& scene);
-void castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& scene, imBufDouble& imageBuffer);
-Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene);
 #ifdef USE_OPENCV
 void displayHistogram(cv::Mat src);
 #endif
-const unsigned int MAX_STEPS = 255;
-const double MAX_LENGTH = 100;
-const double EPSILON = 0.01;
-const unsigned int THREADS_TO_USE = 24;
 
-void populateScene(std::vector<std::shared_ptr<IObject>>& scene)
+void populateScene(Scene& scene)
 {
     std::shared_ptr<IObject> sphere_0 = std::make_shared<Sphere>(Vec(0,0,40), 15, Vec(200, 0, 30));
     std::shared_ptr<IObject> plane_0 = std::make_shared<Plane>(Vec(0,-1, 0), Vec(0, 1, 0), Vec(0, 100, 30));
@@ -66,11 +33,10 @@ void populateScene(std::vector<std::shared_ptr<IObject>>& scene)
     scene.push_back(std::move(mandelBulb_0));
 }
 
-void castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& scene, imBufDouble& imageBuffer)
+void castRays(const Camera& cam, const Scene& scene, imBufDouble& imageBuffer)
 {
     unsigned int total_pixels = cam.X_RES*cam.Y_RES;
     volatile std::atomic<size_t> pixel_count(0); //To be used for parallelprocessing in the future.
-    //std::valarray<double> imageBuffer( total_pixels*3);
 
     std::vector<std::future<void>> future_vector;
 
@@ -105,96 +71,9 @@ void castRays(const Camera& cam, const std::vector<std::shared_ptr<IObject>>& sc
     }
 }
 
-double sceneSDF(const std::vector<std::shared_ptr<IObject>>& scene, Vec pos)
-{
-    double min_dist= 9e19;
-
-    for(std::shared_ptr<IObject> obj: scene)
-    {
-        double dist = obj->SDF(pos);
-        if (dist < min_dist) min_dist = dist;
-    }
-
-    return min_dist;
-}
-Hit RayMarch(const Vec& origin, const Vec& ray, const std::vector<std::shared_ptr<IObject>>& scene, double max_length)
-{
-    Vec pos = origin;
-    double total_length=0;
-    Hit hit;
-    unsigned int i;
-
-    for(i=0; i < MAX_STEPS; i++)
-    {
-        if (total_length > max_length)
-        {
-            total_length = max_length;
-            break;
-        }
-        double min_dist = 9e16;
-        for(std::shared_ptr<IObject> obj: scene)
-        {
-            double dist = obj->SDF(pos);
-            if (dist < min_dist) min_dist =  dist;
-            if (dist < EPSILON)
-            {
-                hit.hit_obj = obj;
-                break;
-            }
-        }
-
-        total_length+=min_dist;
-        pos = pos + ray*min_dist;
-    }
-
-    hit.ray = ray;
-    hit.pos = pos;
-    hit.total_length = total_length;
-    hit.steps = i;
-    return hit;
-}
-
-double clamp(double val, double min){
-    return (val < min) ? min : val;
-}
-
-double softShadow(Vec lightRay, Vec pos, double minT, double maxT, double k, const std::vector<std::shared_ptr<IObject>>& scene)
-{
-    double res = 1;
-    for(double t=minT; t<maxT;)
-    {
-        double dist = sceneSDF(scene, pos);
-        if (dist< 0.001) return 0;
-        res = std::min(res, k*dist/t);
-        t+=dist;
-    }
-    return res;
-}
-
-Vec Shade(Hit hit, const std::vector<std::shared_ptr<IObject>>& scene)
-{
-    return Vec(1,1,1)*hit.total_length;
-    if(hit.total_length == MAX_LENGTH || hit.hit_obj == nullptr)
-    {
-        double t = 0.5*(hit.ray.y+1);
-        return (1-t)*Vec(180, 180,180) + t*Vec(60, 60, 150);
-    }
-  
-
-    Vec Light(3, 3, -8);
-    Vec LightRay = (Light - hit.pos);
-    double lightRayLength = LightRay.abs();
-    LightRay = normalise(LightRay);
-    Hit shadow_hit = RayMarch(hit.pos+0.001*LightRay, LightRay, scene, lightRayLength);
-    //double shadow = softShadow(LightRay, hit.pos+EPSILON*LightRay, 0.01, lightRayLength, 2, scene);
-    if (shadow_hit.hit_obj == nullptr ) return Vec(0,0,0);
-    Vec normal = hit.hit_obj->getNormal(hit.pos-normalise(hit.ray)*2*EPSILON);
-
-    return 3*clamp(normal.dot(LightRay), 0)*hit.hit_obj->color;//clamp(lightRayLength, 1);
-}
-#ifdef USE_OPENCV
 void displayHistogram(imBufDouble& imageBuffer, unsigned int no_pixels)
 {
+#ifdef USE_OPENCV
     double max_val = imageBuffer.max();
     double min_val = imageBuffer.min();
     double mean = imageBuffer.sum()/(3*no_pixels);
@@ -238,8 +117,34 @@ void displayHistogram(imBufDouble& imageBuffer, unsigned int no_pixels)
 
     cv::waitKey(0);
     cv::destroyAllWindows();
-}
 #endif
+}
+
+void displayImage(imBufuInt cvBuffer, const int width, const int height)
+{
+#ifdef USE_OPENCV
+    cv::Mat cv_img(height, width, CV_8UC3, &(cvBuffer[0]), 3 * width);
+    cv::imshow("Raymarcher!", cv_img);
+    cv::waitKey(0);
+    cv::destroyAllWindows();
+#endif
+}
+
+void writeImage(imBufuInt cvBuffer, const int width, const int height)
+{
+#ifdef USE_OPENCV
+    cv::Mat cv_img(height, width, CV_8UC3, &(cvBuffer[0]), 3 * width);
+
+    auto t = std::time(nullptr);
+    auto tm = *std::localtime(&t);
+    std::ostringstream filename;
+    // mac "/Users/liammurphy/Documents/Raymarcher/renders/render_"
+    // win "C:\\Users\\OkeWoke\\Documents\\Raymarcher\\renders\\render_"
+    filename <<  "/Users/liammurphy/Documents/Raymarcher/renders/render_" << std::put_time(&tm, "%d-%m-%Y %H-%M-%S") << ".png";
+    cv::imwrite(filename.str(), cv_img);
+#endif
+}
+
 int main() {
     std::cout << "Raymarcher!" << std::endl;
 
@@ -255,7 +160,7 @@ int main() {
     cam.FL = 10;
 
     int total_px = cam.Y_RES * cam.X_RES;
-    std::vector<std::shared_ptr<IObject>> scene;
+    Scene scene;
     populateScene(scene);
 
     imBufDouble imageBuffer(total_px * 3);
@@ -276,20 +181,9 @@ int main() {
         cvBuffer[i] = static_cast<uint8_t>(imageBuffer[i]);
     }
 
-#ifdef USE_OPENCV
-    cv::Mat cv_img(cam.Y_RES, cam.X_RES, CV_8UC3, &(cvBuffer[0]), 3 * cam.X_RES);
-    cv::imshow("Raymarcher!111!!11!", cv_img);
-    cv::waitKey(0);
-    cv::destroyAllWindows();
+    displayImage(cvBuffer, cam.X_RES, cam.Y_RES);
+    writeImage(cvBuffer, cam.X_RES, cam.Y_RES);
 
-    auto t = std::time(nullptr);
-    auto tm = *std::localtime(&t);
-    std::ostringstream filename;
-    // mac "/Users/liammurphy/Documents/Raymarcher/renders/render_"
-    // win "C:\\Users\\OkeWoke\\Documents\\Raymarcher\\renders\\render_"
-    filename <<  "C:\\Users\\OkeWoke\\Documents\\Raymarcher\\renders\\render_" << std::put_time(&tm, "%d-%m-%Y %H-%M-%S") << ".png";
-    cv::imwrite(filename.str(), cv_img);
-#endif
     std::cout <<"Raymarcher Finished" << std::endl;
 
     return 0;
