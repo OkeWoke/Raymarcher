@@ -36,5 +36,6 @@ out/
 .vs/
 CMakeSettings.json
 cmake-build-debug/
+cmake-build-release/
 renders/
 .DS_Store
