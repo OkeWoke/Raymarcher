@@ -6,6 +6,7 @@
 
 Plane::Plane() : IObject(Vec(), Vec(0,255,0)), normal(Vec(0,1,0))
 {
+
 }
 
 Plane::Plane(Vec p, Vec n, Vec c) : IObject(p, c)
