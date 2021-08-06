@@ -2,6 +2,7 @@
 // Created by Liam Murphy on 6/08/21.
 //
 #include <valarray>
+#include <memory>
 #include <vector>
 #include "IObject.h"
 #include "Vec.h"

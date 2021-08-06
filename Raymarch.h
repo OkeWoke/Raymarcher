@@ -1,7 +1,6 @@
 //
 // Created by Liam Murphy on 6/08/21.
 //
-#include "Vec.h"
 #include "CommonDefinitions.h"
 
 #ifndef RAYMARCHER_RAYMARCH_H
