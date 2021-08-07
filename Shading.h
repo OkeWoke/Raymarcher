@@ -6,7 +6,7 @@
 #ifndef RAYMARCHER_SHADING_H
 #define RAYMARCHER_SHADING_H
 
-double softShadow(Vec lightRay, Vec pos, double minT, double maxT, double k, const Scene& scene);
-Vec Shade(Hit hit, const Scene& scene);
+double softShadow(const Vec& lightRay, const Vec& pos, const double minT, const double maxT, const double k, const Scene& scene);
+Vec Shade(Hit& hit, const Scene& scene);
 
 #endif //RAYMARCHER_SHADING_H

@@ -4,12 +4,12 @@
 
 #include "Shading.h"
 
-double softShadow(Vec lightRay, Vec pos, double minT, double maxT, double k, const Scene& scene)
+double softShadow(const Vec& lightRay, const Vec& pos, const double minT, const double maxT, const double k, const Scene& scene)
 {
     double res = 1;
     for(double t=minT; t<maxT;)
     {
-        double dist = sceneSDF(scene, pos, nullptr);
+        double dist = 6;//sceneSDF(scene, pos);
         if (dist< 0.001) return 0;
         res = std::min(res, k*dist/t);
         t+=dist;
@@ -17,9 +17,9 @@ double softShadow(Vec lightRay, Vec pos, double minT, double maxT, double k, con
     return res;
 }
 
-Vec Shade(Hit hit, const Scene& scene)
+Vec Shade(Hit& hit, const Scene& scene)
 {
-    return Vec(1,1,1)*hit.total_length;
+    //return Vec(1,1,1)*hit.total_length;
     if(hit.total_length == MAX_LENGTH || hit.hit_obj == nullptr)
     {
         double t = 0.5*(hit.ray.y+1);

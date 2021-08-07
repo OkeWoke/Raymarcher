@@ -14,12 +14,12 @@ Plane::Plane(Vec p, Vec n, Vec c) : IObject(p, c)
     this->normal = normalise(n);
 }
 
-double Plane::SDF(Vec p)
+double Plane::SDF(const Vec& p)
 {
     return -1*(this->position-p).dot(this->normal);
 }
 
-Vec Plane::getNormal(Vec p)
+Vec Plane::getNormal(const Vec& p)
 {
     return this->normal;
 }

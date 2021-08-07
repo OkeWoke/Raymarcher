@@ -36,7 +36,7 @@ void populateScene(Scene& scene)
 void castRays(const Camera& cam, const Scene& scene, imBufDouble& imageBuffer)
 {
     unsigned int total_pixels = cam.X_RES*cam.Y_RES;
-    volatile std::atomic<size_t> pixel_count(0); //To be used for parallelprocessing in the future.
+    volatile std::atomic<size_t> pixel_count(0);
 
     std::vector<std::future<void>> future_vector;
 
@@ -71,7 +71,7 @@ void castRays(const Camera& cam, const Scene& scene, imBufDouble& imageBuffer)
     }
 }
 
-void displayHistogram(imBufDouble& imageBuffer, unsigned int no_pixels)
+void displayHistogram(imBufDouble& imageBuffer, const unsigned int no_pixels)
 {
 #ifdef USE_OPENCV
     double max_val = imageBuffer.max();
@@ -149,7 +149,7 @@ int main() {
     std::cout << "Raymarcher!" << std::endl;
 
     Camera cam;
-    cam.position = Vec(0,0,-2.8);
+    cam.position = Vec(0,0,-2);
     cam.n = normalise(Vec(0,0,-1));
     cam.u = Vec(1, 0 ,0);
     cam.v = Vec(0, -1, 0);

@@ -10,7 +10,7 @@ MandelBulb::MandelBulb(): IObject(Vec(), Vec(255, 0, 0))
 
 }
 
-Vec MandelBulb::getNormal(Vec pos)
+Vec MandelBulb::getNormal(const Vec& pos)
 {
     double epsilon = 0.01;
     Vec normal(0,0,0);
@@ -22,15 +22,15 @@ Vec MandelBulb::getNormal(Vec pos)
     return normal;
 }
 
-double MandelBulb::SDF(Vec pos)
+double MandelBulb::SDF(const Vec& pos)
 {
     //Implementation taken from: http://blog.hvidtfeldts.net/index.php/2011/09/distance-estimated-3d-fractals-v-the-mandelbulb-different-de-approximations/
 
     Vec z = pos;
     double dr = 1.0;
     double r = 0.0;
-    int iterations = 15;
-    int power = 5;
+    int iterations = 35;
+    int power = 8;
 
     for (int i = 0; i < iterations; i++)
     {

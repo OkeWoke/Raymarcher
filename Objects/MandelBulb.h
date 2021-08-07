@@ -11,8 +11,8 @@ class MandelBulb : public IObject
 {
     public:
         MandelBulb();
-        double SDF(Vec pos);
-        Vec getNormal(Vec pos);
+        double SDF(const Vec& pos);
+        Vec getNormal(const Vec& pos);
 };
 
 

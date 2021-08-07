@@ -12,8 +12,8 @@ class Sphere : public IObject
     public:
         Sphere();
         Sphere(Vec p, double radius, Vec color);
-        double SDF(Vec p);
-        Vec getNormal(Vec p);
+        double SDF(const Vec& p);
+        Vec getNormal(const Vec& p);
 
     private:
         double radius;

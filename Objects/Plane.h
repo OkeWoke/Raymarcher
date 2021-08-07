@@ -13,8 +13,8 @@ class Plane : public IObject
         Vec normal;
         Plane();
         Plane(Vec p, Vec n, Vec c);
-        double SDF(Vec p);
-        Vec getNormal(Vec p);
+        double SDF(const Vec& p);
+        Vec getNormal(const Vec& p);
 };
 
 

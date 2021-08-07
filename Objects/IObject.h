@@ -13,8 +13,8 @@ class IObject {
         IObject();
         IObject(Vec p, Vec c) : position(p), color(c){};
 
-        virtual double SDF(Vec p) = 0;
-        virtual Vec getNormal(Vec p) = 0;
+        virtual double SDF(const Vec& p) = 0;
+        virtual Vec getNormal(const Vec& p) = 0;
 
 };
 

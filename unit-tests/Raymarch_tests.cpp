@@ -29,10 +29,37 @@ TEST_CASE_METHOD(Raymarch_Test_Fixture, "Raymarch Tests", "[raymarch-tests]")
     Scene scene = populateScene();
     Vec origin(0,0,0);
     Vec ray(0,0, 1);
-    Hit hit = RayMarch(origin, ray, scene, 10 );
+    Hit hit = RayMarch(origin, ray, scene, 10);
     REQUIRE(hit.total_length == 2.5);
+    REQUIRE(hit.hit_obj == scene[0]);
+    REQUIRE(hit.steps == 3);
 
     Vec ray2(0,0, -1);
     hit = RayMarch(origin, ray2, scene, 10 );
     REQUIRE(hit.total_length == 10);
+    REQUIRE(hit.hit_obj == nullptr);
+    REQUIRE(hit.steps == 10);
+
+    Vec ray3(0,-1, 0);
+    hit = RayMarch(origin, ray3, scene, 10);
+    REQUIRE(hit.total_length == 1);
+    REQUIRE(hit.hit_obj == scene[1]);
+    REQUIRE(hit.steps == 1);
+
+    Vec origin_2(0,0,2.4999);
+    hit = RayMarch(origin_2, ray, scene, 10);
+    REQUIRE(hit.hit_obj== scene[0]);
+    REQUIRE(hit.total_length == 0);
+    REQUIRE(hit.steps == 0);
+
+    Vec origin_3(0,-0.999, 0);
+    hit = RayMarch(origin_3, ray, scene, 10);
+    REQUIRE(hit.hit_obj== scene[1]);
+    REQUIRE(hit.total_length == 0);
+    REQUIRE(hit.steps == 0);
+
+    hit = RayMarch(origin, ray, scene, 1);
+    REQUIRE(hit.total_length == 1);
+    REQUIRE(hit.hit_obj == nullptr);
+    REQUIRE(hit.steps == 1);
 }

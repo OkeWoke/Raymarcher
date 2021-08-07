@@ -12,12 +12,12 @@ Sphere::Sphere(Vec p, double radius, Vec c) : IObject(p, c), radius(radius)
 {
 }
 
-double Sphere::SDF(Vec p)
+double Sphere::SDF(const Vec& p)
 {
     return (p-this->position).abs() - this->radius;
 }
 
-Vec Sphere::getNormal(Vec p)
+Vec Sphere::getNormal(const Vec& p)
 {
     return normalise(p-this->position);
 }
