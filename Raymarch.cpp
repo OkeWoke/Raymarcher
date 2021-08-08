@@ -3,7 +3,7 @@
 //
 
 #include "Raymarch.h"
-
+#include<iostream>
 
 Hit RayMarch(const Vec& origin, const Vec& ray, const Scene& scene, const double max_length)
 {
@@ -22,14 +22,17 @@ Hit RayMarch(const Vec& origin, const Vec& ray, const Scene& scene, const double
             if (dist < min_dist)
             {
                 min_dist = dist;
-                if(min_dist < EPSILON)   hit.hit_obj = obj; //We've hit something.
+                if(min_dist < EPSILON)
+                {
+                    hit.hit_obj = obj; //We've hit something.
+                }
             }
         }
 
         if (hit.hit_obj != nullptr) break;        //We've hit something.
 
         total_length+=min_dist;
-        pos = pos + ray*min_dist;
+        pos = pos + ray*(min_dist);//-EPSILON/2);
         if (total_length > max_length)
         {
             total_length = max_length;

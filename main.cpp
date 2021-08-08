@@ -26,8 +26,11 @@ void populateScene(Scene& scene)
 {
     std::shared_ptr<IObject> sphere_0 = std::make_shared<Sphere>(Vec(0,0,40), 15, Vec(200, 0, 30));
     std::shared_ptr<IObject> plane_0 = std::make_shared<Plane>(Vec(0,-1, 0), Vec(0, 1, 0), Vec(0, 100, 30));
-    //scene.push_back(std::move(sphere_0));
-    //scene.push_back(std::move(plane_0));
+    std::shared_ptr<IObject> sphere_1 = std::make_shared<Sphere>(Vec(5,5,3), 6, Vec(200, 250, 30));
+
+    scene.push_back(std::move(sphere_0));
+    scene.push_back(std::move(plane_0));
+    scene.push_back(sphere_1);
 
     std::shared_ptr<IObject> mandelBulb_0 = std::make_shared<MandelBulb>();
     scene.push_back(std::move(mandelBulb_0));
@@ -157,7 +160,7 @@ int main() {
     cam.Y_RES = 800;
     cam.WIDTH = 5;
     cam.HEIGHT = 5;
-    cam.FL = 10;
+    cam.FL = 8;
 
     int total_px = cam.Y_RES * cam.X_RES;
     Scene scene;

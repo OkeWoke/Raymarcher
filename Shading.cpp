@@ -27,14 +27,15 @@ Vec Shade(Hit& hit, const Scene& scene)
     }
 
 
-    Vec Light(3, 3, -8);
-    Vec LightRay = (Light - hit.pos);
+    Vec Light(-3, 3, -10);
+    Vec surface_pos = hit.pos - (EPSILON*hit.ray);
+    Vec LightRay = (Light - surface_pos);
     double lightRayLength = LightRay.abs();
     LightRay = normalise(LightRay);
-    Hit shadow_hit = RayMarch(hit.pos+0.001*LightRay, LightRay, scene, lightRayLength);
+    Hit shadow_hit = RayMarch(surface_pos, LightRay, scene, lightRayLength);
     //double shadow = softShadow(LightRay, hit.pos+EPSILON*LightRay, 0.01, lightRayLength, 2, scene);
-    if (shadow_hit.hit_obj == nullptr ) return Vec(0,0,0);
-    Vec normal = hit.hit_obj->getNormal(hit.pos-normalise(hit.ray)*2*EPSILON);
+    if (shadow_hit.hit_obj != nullptr ) return Vec(0,0,0); //object is in shadow
+    Vec normal = hit.hit_obj->getNormal(hit.pos);
 
-    return 3*clamp(normal.dot(LightRay), 0)*hit.hit_obj->color;//clamp(lightRayLength, 1);
+    return normal.dot(LightRay)*hit.hit_obj->color;//clamp(lightRayLength, 1);
 }

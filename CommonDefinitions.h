@@ -15,9 +15,9 @@ typedef std::valarray<uint8_t> imBufuInt;
 typedef std::vector<std::shared_ptr<IObject>> Scene;
 
 const unsigned int MAX_STEPS = 255;
-const double MAX_LENGTH = 5;
+const double MAX_LENGTH = 100;
 const double EPSILON = 0.01;
-const unsigned int THREADS_TO_USE = 24;
+const unsigned int THREADS_TO_USE = 8;
 
 struct Camera
 {
