@@ -33,7 +33,7 @@ void populateScene(Scene& scene)
     scene.push_back(sphere_1);
 
     std::shared_ptr<IObject> mandelBulb_0 = std::make_shared<MandelBulb>();
-    scene.push_back(std::move(mandelBulb_0));
+    //scene.push_back(std::move(mandelBulb_0));
 }
 
 void castRays(const Camera& cam, const Scene& scene, imBufDouble& imageBuffer)

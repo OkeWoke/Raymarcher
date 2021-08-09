@@ -30,7 +30,7 @@ double MandelBulb::SDF(const Vec& pos)
     double dr = 1.0;
     double r = 0.0;
     int iterations = 200;
-    int power = 3;
+    int power = 8;
 
     for (int i = 0; i < iterations; i++)
     {

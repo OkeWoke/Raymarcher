@@ -19,7 +19,6 @@ include_directories(${APP_ROOT})
 include_directories(${OBJECTS})
 file(GLOB obj_src ${OBJECTS}/*.cpp)
 file(GLOB cur_src ${APP_ROOT}/*.cpp)
-
 add_executable(Raymarcher ${cur_src} ${obj_src})
 
 if(USE_OPENCV)
